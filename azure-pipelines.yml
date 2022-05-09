@@ -1,0 +1,152 @@
+# Python package
+# Create and test a Python package on multiple Python versions.
+# Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/python
+
+trigger: none
+pr: none
+
+stages:
+  # - stage: prInsights
+  #   displayName: Get Repo PR Data
+  #   jobs:
+  #     - job: getRepoData
+  #       displayName: Get Repo PR Data
+  #       timeoutInMinutes: 1200
+  #       steps:
+  #         - checkout: none
+          # - script: |
+          #     pip install bandit
+          #     cat <<EOF > requirements.txt
+          #     jsonschema==3.0.1
+          #     requests==2.21.0
+          #     PyGithub==1.55
+          #     tqdm==4.62.3
+          #     pdfkit==1.0.0
+          #     pandas==1.3.5
+          #     EOF
+          #     python -m pip install --upgrade git+https://$(GIT_TOOLS_TOKEN)@github.tools.sap/DigitalManufacturing/dmc-pypipes.git
+          #     PIP_STATUS=$?
+          #     if [ ${PIP_STATUS} -ne 0 ]
+          #     then
+          #       echo "pip install failed with code: ${PIP_STATUS}"
+          #       exit 1
+          #     fi
+          #     pip install -r requirements.txt
+          #   displayName: Install dependencies
+          # - bash: |
+          #     echo "Retrieving the DevOps Python script for execution"
+          #     GIT_RESPONSE=$(curl -Ls -w '%{http_code}' -u ${GIT_USER}:${GIT_TOOLS_TOKEN} https://github.tools.sap/api/v3/repos/TempOrg/test/contents/repoDetails.py -H 'Accept: application/vnd.github.v3.raw' -o $(Agent.BuildDirectory)/repoDetails.py) 
+          #     echo "Received response code:" $GIT_RESPONSE
+          #     if [ $GIT_RESPONSE != "200" ]
+          #       then
+          #         echo "Error response:"
+          #         ERROR=$(Agent.BuildDirectory)/repoData.py
+          #         cat $ERROR
+          #         exit 1
+          #       fi
+          #     ls
+          #     echo "+++++++++++++++++++++++++++++++"
+          #     cd ..
+          #     ls
+          #     cd s
+          #     ls
+          #   displayName: Get Py Script for Execution
+          #   failOnStderr: false
+          #   env:
+          #     GIT_USER: $(GIT_USER)
+          #     GIT_TOKEN: $(GIT_TOKEN)
+
+          # # - script: python $(Agent.BuildDirectory)/repoDetails.py
+          # #   displayName: Get Repo Data
+          # #   env:
+          # #     GIT_TOKEN: $(GIT_TOKEN)
+          # #     START_DATE: $(START_DATE)
+          # #     END_DATE: $(END_DATE)
+
+          # - task: PublishPipelineArtifact@1
+          #   condition: succeededOrFailed()
+          #   inputs:
+          #     targetPath: .
+          #     artifactName: Get Repo Data-$(System.JobId)
+          #   displayName: Publish Artifacts
+  - stage: genReport
+    displayName: Generate Report
+    jobs:
+      - job: genReport
+        displayName: Generate Report
+        timeoutInMinutes: 1200
+        steps:
+          - checkout: self
+            path: prInsights
+          - script: |
+              pip install bandit
+              cat <<EOF > requirements.txt
+              jsonschema==3.0.1
+              requests==2.21.0
+              PyGithub==1.55
+              tqdm==4.62.3
+              pdfkit==1.0.0
+              pandas==1.3.5
+              matplotlib==3.5.1
+              EOF
+              # python -m pip install --upgrade git+https://$(GIT_TOOLS_TOKEN)@github.tools.sap/DigitalManufacturing/dmc-pypipes.git
+              # PIP_STATUS=$?
+              # if [ ${PIP_STATUS} -ne 0 ]
+              # then
+              #   echo "pip install failed with code: ${PIP_STATUS}"
+              #   exit 1
+              # fi
+              pip install -r requirements.txt
+            displayName: Install dependencies
+          - bash: |
+              echo "Retrieving the DevOps Python script for execution"
+              echo $(Agent.BuildDirectory)
+              ls
+              echo "+++++++++++++++++++++++++++++++++++++++++++"
+              cd ..
+              ls
+            displayName: Get Py Script for Execution
+            env:
+              GIT_USER: $(GIT_USER)
+              GIT_TOOLS_TOKEN: $(GIT_TOOLS_TOKEN)
+
+          - script: python $(Agent.BuildDirectory)/prInsights/graphGeneration/report.py
+            displayName: Get Repo Data
+            failOnStderr: false
+            env:
+              GIT_TOOLS_TOKEN: $(GIT_TOOLS_TOKEN)
+              START_DATE: $(START_DATE)
+              END_DATE: $(END_DATE)
+
+          - bash: |
+              echo "Retrieving the DevOps Python script for execution"
+              wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.bionic_amd64.deb
+              sudo apt install ./wkhtmltox_0.12.6-1.bionic_amd64.deb
+              echo "_________________________________________________________________________________"
+              ls
+              echo "++++++++++++++++++++++++++++++++++"
+              cd pdfFormatting
+              cd public
+              cd ../../graphs
+              ls
+              echo "+++++++++++++++++++++++++++++++++++" 
+            displayName: Get Py Script for Execution
+            env:
+              GIT_USER: $(GIT_USER)
+              GIT_TOOLS_TOKEN: $(GIT_TOOLS_TOKEN) 
+
+          - script: python $(Agent.BuildDirectory)/prInsights/pdfFormatting/creatingReport.py
+            displayName: Creating reports
+            failOnStderr: false
+            env:
+              GIT_TOOLS_TOKEN: $(GIT_TOOLS_TOKEN)
+              START_DATE: $(START_DATE)
+              END_DATE: $(END_DATE)
+          
+          - task: PublishPipelineArtifact@1
+            condition: succeededOrFailed()
+            inputs:
+              targetPath: .
+              artifactName: Get Report-$(System.JobId)
+            displayName: Publish Artifacts     
